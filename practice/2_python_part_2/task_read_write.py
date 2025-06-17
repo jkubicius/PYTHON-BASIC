@@ -28,13 +28,17 @@ def read_files(file_paths: list[str]):
 
 def write_to_file(filename: str, content: list[str]):
     with open(filename, 'w') as file:
-        file.write(','.join(map(str, content))) # join list elements with ,
+        file.write(','.join(content)) # join list elements with ,
+
+def get_number(filename: str):
+    return int(filename.split('_')[1].split('.')[0]) # extract number from filename
 
 if __name__ == "__main__":
 
     folder = './files'
 
-    files = [os.path.join(folder, filename) for filename in sorted(os.listdir(folder))]
+    files = sorted(os.listdir(folder), key=get_number)
+    files = [os.path.join(folder, filename) for filename in files]
 
     content = read_files(files)
     write_to_file("result.txt", content)

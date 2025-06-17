@@ -26,7 +26,7 @@ Methods:
 PEP8 comply strictly.
 """
 import datetime
-
+from typing import Union
 class Homework:
     def __init__(self, text: str, days: int):
         self.text = text
@@ -52,7 +52,7 @@ class Student:
         self.first_name = first_name
         self.last_name = last_name
 
-    def do_homework(self, homework: Homework) -> Homework | None:
+    def do_homework(self, homework: Homework) -> Union[Homework, None]:
         if homework.is_active():
             return homework
         print('You are late')

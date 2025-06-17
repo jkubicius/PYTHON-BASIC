@@ -18,23 +18,26 @@ In all cases it should print "Division finished"
 import typing
 
 class DivisionByOneException(Exception):
-    pass
+    def __init__(self, message):
+        super().__init__(message)
 
-def division(x: int, y: int) -> typing.Union[None, float]:
+    def __repr__(self):
+        return f'{self.__class__.__name__}("{self.args[0]}")'
+
+def division(x: int, y: int) -> typing.Union[None, int]:
     try:
-        if y == 0:
-            print("Division by 0")
-            return None
-        elif y == 1:
+        if y == 1:
             raise DivisionByOneException("Deletion on 1 get the same result")
-        else:
-            return x / y
-    except DivisionByOneException as error:
-        print(error)
+        return int(x / y)
+    except ZeroDivisionError:
+        print("Division by 0")
+        return None
+    except DivisionByOneException as e:
+        print(repr(e))
     finally:
         print("Division finished")
 
 
-print(division(1, 0))
-print(division(1, 1))
+division(1, 0)
+division(1, 1)
 print(division(2, 2))
