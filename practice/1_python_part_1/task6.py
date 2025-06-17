@@ -32,4 +32,4 @@ def get_min_max(filename: str) -> Tuple[int, int]:
                 max_val = num
     return (min_val, max_val)
 
-print(get_min_max('resources/filename.py'))
+print(get_min_max('resources/filename.txt'))
