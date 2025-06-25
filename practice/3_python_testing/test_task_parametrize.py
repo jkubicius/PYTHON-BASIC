@@ -37,6 +37,7 @@ def fibonacci_2(n):
         fibo.append(fibo[i-1] + fibo[i-2])
     return fibo[n]
 
+
 @pytest.mark.parametrize("n,expected", testdata)
 def test_fibonacci_1(n, expected):
     assert fibonacci_1(n) == expected

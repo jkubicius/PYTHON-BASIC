@@ -6,33 +6,30 @@ https://docs.pytest.org/en/6.2.x/tmpdir.html
 """
 
 import importlib
-import pytest
 
 read_write_module = importlib.import_module('practice.2_python_part_2.task_read_write')
 
 read_files = read_write_module.read_files
 write_to_file = read_write_module.write_to_file
 
-@pytest.fixture
-def mock_files(tmp_path):
-    file_1 = tmp_path / "file_1.txt"
-    file_2 = tmp_path / "file_2.txt"
+CONTENT = ["1", "2", "3"]
+RESULT = "result.txt"
 
-    file_1.write_text("Content of file 1")
-    file_2.write_text("Content of file 2")
 
-    return [str(file_1), str(file_2)]
+def test_read_and_write(tmp_path):
+    temp_dir = tmp_path / "test_dir"
+    temp_dir.mkdir()
 
-def test_read_files(mock_files):
-    result = read_files(mock_files)
+    for value in CONTENT:
+        file_path = temp_dir / f"file_{value}.txt"
+        file_path.write_text(value)
 
-    assert result == ["Content of file 1", "Content of file 2"]
+    file_paths = [str(temp_dir / f"file_{value}.txt") for value in CONTENT]
+    read_values = read_files(file_paths)
 
-def test_write_to_file(tmp_path):
-    content_to_write = ["Hello", "World"]
-    output_file = tmp_path / "output.txt"
+    result_file_path = temp_dir / RESULT
+    write_to_file(str(result_file_path), read_values)
 
-    write_to_file(str(output_file), content_to_write)
-    written_text = output_file.read_text()
-
-    assert written_text == "Hello,World"
+    expected = ", ".join(CONTENT)
+    actual = result_file_path.read_text()
+    assert actual == expected

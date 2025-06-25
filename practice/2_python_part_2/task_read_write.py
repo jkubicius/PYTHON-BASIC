@@ -28,7 +28,7 @@ def read_files(file_paths: list[str]):
 
 def write_to_file(filename: str, content: list[str]):
     with open(filename, 'w') as file:
-        file.write(','.join(content)) # join list elements with ,
+        file.write(', '.join(content)) # join list elements with ,
 
 def get_number(filename: str):
     return int(filename.split('_')[1].split('.')[0]) # extract number from filename
