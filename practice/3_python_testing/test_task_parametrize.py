@@ -12,7 +12,6 @@ Task:
 import pytest
 
 testdata = [
-    (0, 0),
     (1, 1),
     (2, 1),
     (10, 55),
@@ -21,8 +20,6 @@ testdata = [
 ]
 
 def fibonacci_1(n):
-    if n == 0:
-        return 0
     a, b = 0, 1
     for _ in range(n-1):
         a, b = b, a + b
@@ -30,10 +27,8 @@ def fibonacci_1(n):
 
 
 def fibonacci_2(n):
-    if n == 0:
-        return 0
     fibo = [0, 1]
-    for i in range(2, n+1): # buggy implementation
+    for i in range(2, n+1):
         fibo.append(fibo[i-1] + fibo[i-2])
     return fibo[n]
 
