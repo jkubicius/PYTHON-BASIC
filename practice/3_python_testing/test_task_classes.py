@@ -56,7 +56,3 @@ class TestClasses(unittest.TestCase):
         hw = self.teacher.create_homework('Impossible', -1)
         assert hw.deadline == datetime.timedelta(days=-1), "Deadline should be negative"
         assert not hw.is_active(), "Homework with negative deadline should not be active"
-
-
-if __name__ == '__main__':
-    unittest.main()
