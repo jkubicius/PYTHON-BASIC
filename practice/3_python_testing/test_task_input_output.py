@@ -20,14 +20,14 @@ res = importlib.import_module('practice.2_python_part_2.task_input_output')
 read_numbers = res.read_numbers
 class TestCompareInputAndOutput():
 
-    @patch('sys.stdin', io.StringIO("\n".join(["1", "2", "3", "4"])))
+    @patch('sys.stdin', io.StringIO("1\n2\n3\n4\n"))
     def test_read_numbers_without_text_input(self):
         result = read_numbers(4)
-        expected_result = 'Avg: 2.5'
+        expected_result = 'Avg: 2.50'
         assert result == expected_result
 
-    @patch('sys.stdin', io.StringIO("\n".join(["1", "2", "Test"])))
+    @patch('sys.stdin', io.StringIO("1\n2\nTest\n"))
     def test_read_numbers_with_text_input(self):
         result = read_numbers(3)
-        expected_result = 'Avg: 1.5'
+        expected_result = 'Avg: 1.50'
         assert result == expected_result

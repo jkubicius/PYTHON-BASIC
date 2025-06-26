@@ -35,4 +35,5 @@ def read_numbers(n: int) -> str:
     average = round(total / count, 2)
     return f"Avg: {average:.2f}"
 
-print(read_numbers(5))
+if __name__ == "__main__":
+    print(read_numbers(5))
