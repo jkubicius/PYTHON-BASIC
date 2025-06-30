@@ -28,10 +28,15 @@ def print_name_address(args: argparse.Namespace) -> None:
         print(result)
 
 def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("number", type=int)
-    args, unknown = parser.parse_known_args()
+    parser = argparse.ArgumentParser(
+        usage="%(prog)s [-h] [--FIELD=PROVIDER FIELD=PROVIDER [FIELD=PROVIDER ...]] NUMBER"
+    )
+    parser.add_argument(
+        "number",
+        type=int,
+        metavar="NUMBER")
 
+    args, unknown = parser.parse_known_args()
     field_map = {}
     for arg in unknown:
         if arg.startswith("--") and "=" in arg:
