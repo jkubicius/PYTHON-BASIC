@@ -15,7 +15,6 @@ Example:
 """
 import argparse
 from faker import Faker
-import sys
 
 def print_name_address(args: argparse.Namespace) -> None:
     fake = Faker()
@@ -28,32 +27,25 @@ def print_name_address(args: argparse.Namespace) -> None:
         print(result)
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        usage="%(prog)s [-h] [--FIELD=PROVIDER FIELD=PROVIDER [FIELD=PROVIDER ...]] NUMBER"
-    )
-    parser.add_argument(
-        "number",
-        type=int,
-        metavar="NUMBER")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('NUMBER', type=int)
+    parser.add_argument('--FIELD=PROVIDER', type=str, nargs="+")
 
     args, unknown = parser.parse_known_args()
+
     field_map = {}
     for arg in unknown:
         if arg.startswith("--") and "=" in arg:
-            key, value = arg[2:].split("=", 1)
-            field_map[key] = value
-        else:
-            print(f"Ignored invalid argument: {arg}", file=sys.stderr)
+            field, provider = arg[2:].split("=", 1)
+            field_map[field] = provider
 
-    return args.number, field_map
+    return args.NUMBER, field_map
 
-def main():
+
+if __name__ == "__main__":
     number, fields = parse_args()
     args = argparse.Namespace(number=number, **fields)
     print_name_address(args)
-
-if __name__ == "__main__":
-    main()
 
 """
 Write test for print_name_address function
