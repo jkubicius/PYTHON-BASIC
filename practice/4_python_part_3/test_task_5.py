@@ -10,15 +10,19 @@ Example:
     >>> m.method2()
     b'some text'
 """
-from unittest.mock import Mock, patch
+
+
+from unittest.mock import patch, Mock
 from task_5 import make_request
 
-@patch("urllib.request.urlopen")
-def test_make_request(mock_urlopen):
-    mock_urlopen.return_value.getcode.return_value = 200
-    mock_urlopen.return_value.read.return_value = b"some text"
+@patch('task_5.request.urlopen')
+def test_successful_request(mock_urlopen):
+    mock_resp = Mock()
+    mock_resp.getcode.return_value = 200  #
+    mock_resp.read.return_value = b'some text'
 
-    code, data = make_request("http://example.com")
+    mock_urlopen.return_value = mock_resp
+    status, content = make_request('http://fakeurl.com')
 
-    assert code == 200
-    assert data == "some text"
+    assert status == 200
+    assert content == 'some text'

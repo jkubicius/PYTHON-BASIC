@@ -5,18 +5,16 @@ Examples:
      >>> make_request('https://www.google.com')
      200, 'response data'
 """
-from urllib.request import urlopen
 from typing import Tuple
+from urllib import request
 
 def make_request(url: str) -> Tuple[int, str]:
-    resp = urlopen(url)
-
-    charset = resp.headers.get_content_charset() or "utf-8"
-    text = resp.read().decode(charset, errors="replace")
-    return resp.getcode(), text
+    resp = request.urlopen(url)
+    return resp.getcode(), resp.read().decode('utf-8')
 
 if __name__ == "__main__":
-    print(make_request("https://www.google.com"))
+    result = make_request('https://www.google.com')
+    print(result)
 
 
 """
