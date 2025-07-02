@@ -22,13 +22,3 @@ def generate_words(n=20):
         words.append(word)
 
     return words
-
-
-def write_to_file(filename: str, content: list[str], encoding='UTF-8', sep='\n'):
-    with open(filename, 'w', encoding=encoding) as file:
-        file.write(sep.join(content)) # Write content with separator
-
-words = generate_words()
-
-write_to_file('file1.txt', words, encoding='UTF-8', sep='\n')
-write_to_file('file2.txt', words[::-1], encoding='cp1252', sep=',') # ::-1 means reverse the list
