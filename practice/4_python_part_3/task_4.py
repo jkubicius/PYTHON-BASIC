@@ -16,35 +16,36 @@ Example:
 import argparse
 from faker import Faker
 
+
 def print_name_address(args: argparse.Namespace) -> None:
     fake = Faker()
-    for _ in range(args.number):
-        result = {}
-        for key, provider in vars(args).items():
-            if key == "number":
-                continue
-            result[key] = getattr(fake, provider)()
-        print(result)
+    arg_values = vars(args)
 
-def parse_args():
+    for _ in range(args.number):
+        record = {
+            key: getattr(fake, value)()
+            for key, value in arg_values.items()
+            if key != "number" and value
+        }
+        print(record)
+
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument('NUMBER', type=int)
+    parser.add_argument('number', type=int)
     parser.add_argument('--FIELD=PROVIDER', type=str, nargs="+")
 
-    args, unknown = parser.parse_known_args()
+    args, extra_args = parser.parse_known_args()
 
-    field_map = {}
-    for arg in unknown:
-        if arg.startswith("--") and "=" in arg:
-            field, provider = arg[2:].split("=", 1)
-            field_map[field] = provider
+    for item in extra_args:
+        if "=" in item:
+            key, value = item.split("=", 1)
+            setattr(args, key, value)
 
-    return args.NUMBER, field_map
+    return args
 
 
 if __name__ == "__main__":
-    number, fields = parse_args()
-    args = argparse.Namespace(number=number, **fields)
+    args = parse_args()
     print_name_address(args)
 
 """
