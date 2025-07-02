@@ -21,17 +21,17 @@ def print_name_address(args: argparse.Namespace) -> None:
     fake = Faker()
     arg_values = vars(args)
 
-    for _ in range(args.number):
+    for _ in range(args.NUMBER):
         record = {
-            key: getattr(fake, value)()
-            for key, value in arg_values.items()
-            if key != "number" and value
+            key[2:]: getattr(fake, provider)()
+            for key, provider in arg_values.items()
+            if key.startswith("--") and provider
         }
         print(record)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument('number', type=int)
+    parser.add_argument('NUMBER', type=int)
     parser.add_argument('--FIELD=PROVIDER', type=str, nargs="+")
 
     args, extra_args = parser.parse_known_args()

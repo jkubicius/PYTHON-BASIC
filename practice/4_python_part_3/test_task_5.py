@@ -10,17 +10,15 @@ Example:
     >>> m.method2()
     b'some text'
 """
-
-
 from unittest.mock import patch, Mock
 from task_5 import make_request
 
 @patch('task_5.request.urlopen')
 def test_successful_request(mock_urlopen):
     mock_resp = Mock()
-    mock_resp.getcode.return_value = 200  #
+    mock_resp.code = 200   #
     mock_resp.read.return_value = b'some text'
-
+    mock_resp.headers.get_content_charset.return_value = 'utf-8'
     mock_urlopen.return_value = mock_resp
     status, content = make_request('http://fakeurl.com')
 
