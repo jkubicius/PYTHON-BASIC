@@ -11,10 +11,9 @@ Note that address may have several domain levels
 """
 import re
 
-
 def is_http_domain(domain: str) -> bool:
-    ...
-
+    pattern = r'https?://'
+    return re.search(pattern, domain) is not None
 
 """
 write tests for is_http_domain function

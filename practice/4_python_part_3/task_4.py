@@ -13,13 +13,40 @@ Example:
 {"some_name": "Chad Baird", "fake-address": "62323 Hobbs Green\nMaryshire, WY 48636"}
 {"some_name": "Courtney Duncan", "fake-address": "8107 Nicole Orchard Suite 762\nJosephchester, WI 05981"}
 """
-
 import argparse
+from faker import Faker
 
 
 def print_name_address(args: argparse.Namespace) -> None:
-    ...
+    fake = Faker()
+    arg_values = vars(args)
 
+    for _ in range(args.NUMBER):
+        record = {
+            key[2:]: getattr(fake, provider)()
+            for key, provider in arg_values.items()
+            if key.startswith("--") and provider
+        }
+        print(record)
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('NUMBER', type=int)
+    parser.add_argument('--FIELD=PROVIDER', type=str, nargs="+")
+
+    args, extra_args = parser.parse_known_args()
+
+    for item in extra_args:
+        if "=" in item:
+            key, value = item.split("=", 1)
+            setattr(args, key, value)
+
+    return args
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    print_name_address(args)
 
 """
 Write test for print_name_address function
