@@ -35,6 +35,7 @@ Links:
 import time
 import requests
 from bs4 import BeautifulSoup
+import re
 
 USER_AGENTS = ['Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)']
 
@@ -68,38 +69,73 @@ def make_request(url: str) -> BeautifulSoup:
 
 
 def get_stock_codes() -> dict:
-    soup = make_request(MOST_ACTIVE_STOCKS_URL)
-    rows = soup.find_all("tr", class_="row yf-ao6als")
     stock_codes = {}
+    count = 100
+    offset = 0
+    rx_pages = r"^(\d+)-(\d+) of (\d+) results"
 
-    for row in rows:
-        code = row.find("span", class_="symbol yf-hwu3c7")
-        company_name = row.find("div", class_="leftAlignHeader companyName yf-362rys enableMaxWidth")
-        stock_codes[code.text.rstrip()] = company_name.text.rstrip()
+    while True:
+        url = f"https://finance.yahoo.com/markets/stocks/most-active/?count={count}&start={offset}"
+        soup = make_request(url)
+
+        rows = soup.find_all("tr", class_="row yf-ao6als")
+        for row in rows:
+            code = row.find("span", class_="symbol yf-hwu3c7")
+            company_name = row.find("div", class_="leftAlignHeader companyName yf-362rys enableMaxWidth")
+            if code and company_name:
+                stock_codes[code.text.strip()] = company_name.text.strip()
+
+        result_span = soup.find("span", string=re.compile(rx_pages))
+        if not result_span:
+            break
+
+        match = re.match(rx_pages, result_span.text.strip())
+        if not match:
+            break
+
+        end = int(match.group(2))
+        total = int(match.group(3))
+        if end >= total:
+            break
+
+        offset = end
 
     return stock_codes
 
 
-
-# Function to get the youngest CEOs from the profile tab
 def get_youngest_ceos_from_profile_tab(stock_codes: dict) -> dict:
     all_data = []
 
     for code, name in stock_codes.items():
         soup = make_request(STOCK_PROFILE_TAB_URL.format(code=code))
 
-        country = soup.find("div", class_="address yf-wxp4ja").find_all("div")[-1].text
+        country = ""
+        address_div = soup.find("div", class_="address yf-wxp4ja")
+        if address_div:
+            address_parts = address_div.find_all("div")
+            if address_parts:
+                country = address_parts[-1].text.strip()
 
-        employees_count = soup.find("dl", class_="company-stats yf-wxp4ja")
-        employees = employees_count.find("strong").text if employees_count and employees_count.find("strong") else "N/A"
+        employees = ""
+        emp_section = soup.find("dl", class_="company-stats yf-wxp4ja")
+        if emp_section:
+            strong = emp_section.find("strong")
+            if strong:
+                employees = strong.text.strip()
 
-        employee_table = soup.find("div", class_="table-container yf-mj92za")
-        table_body = employee_table.find("tbody")
-        first_row = table_body.find("tr", class_="yf-mj92za")
-        first_row = first_row.find_all("td", class_="yf-mj92za")
-        ceo_name = first_row[0].text.strip()
-        year_text = first_row[-1].text.strip()
-        ceo_year = int(year_text) if year_text.isdigit() else "N/A"
+        ceo_name, ceo_year = "", "N/A"
+        table = soup.find("div", class_="table-container yf-mj92za")
+        if table:
+            tbody = table.find("tbody")
+            if tbody:
+                row = tbody.find("tr", class_="yf-mj92za")
+                if row:
+                    tds = row.find_all("td", class_="yf-mj92za")
+                    if len(tds) >= 2:
+                        ceo_name = tds[0].text.strip()
+                        year_text = tds[-1].text.strip()
+                        if year_text.isdigit():
+                            ceo_year = int(year_text)
 
         if ceo_year != "N/A":
             all_data.append({
@@ -112,7 +148,6 @@ def get_youngest_ceos_from_profile_tab(stock_codes: dict) -> dict:
             })
 
     sorted_data = sorted(all_data, key=lambda x: x["CEO Year Born"], reverse=True)
-    print("CEO Years Born (youngest first):", [entry["CEO Year Born"] for entry in sorted_data])
     youngest_five = sorted_data[:5]
 
     stock_data = {
@@ -290,35 +325,35 @@ def generate_sheet(title: str, headers: list[str], rows: list[list[str]]) -> str
 def main():
     codes = get_stock_codes()
 
-    # youngest_ceos_data = get_youngest_ceos_from_profile_tab(codes)
-    #
-    # headers = ["Name", "Code", "Country", "Employees", "CEO Name", "CEO Year Born"]
-    # rows = list(zip(
-    #     youngest_ceos_data["Name"],
-    #     youngest_ceos_data["Code"],
-    #     youngest_ceos_data["Country"],
-    #     youngest_ceos_data["Employees"],
-    #     youngest_ceos_data["CEO Name"],
-    #     youngest_ceos_data["CEO Year Born"],
-    # ))
-    #
-    # sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
-    # print(sheet)
-    #
-    #
-    #
-    # best_statistics = get_stocks_with_best_statistics(codes)
-    #
-    # headers = ["Name", "Code", "52-Week Change", "Total Cash"]
-    # rows = list(zip(
-    #     best_statistics["Name"],
-    #     best_statistics["Code"],
-    #     best_statistics["52 Week Change"],
-    #     best_statistics["Total Cash"],
-    # ))
-    #
-    # sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
-    # print(sheet)
+    youngest_ceos_data = get_youngest_ceos_from_profile_tab(codes)
+
+    headers = ["Name", "Code", "Country", "Employees", "CEO Name", "CEO Year Born"]
+    rows = list(zip(
+        youngest_ceos_data["Name"],
+        youngest_ceos_data["Code"],
+        youngest_ceos_data["Country"],
+        youngest_ceos_data["Employees"],
+        youngest_ceos_data["CEO Name"],
+        youngest_ceos_data["CEO Year Born"],
+    ))
+
+    sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
+    print(sheet)
+
+
+
+    best_statistics = get_stocks_with_best_statistics(codes)
+
+    headers = ["Name", "Code", "52-Week Change", "Total Cash"]
+    rows = list(zip(
+        best_statistics["Name"],
+        best_statistics["Code"],
+        best_statistics["52 Week Change"],
+        best_statistics["Total Cash"],
+    ))
+
+    sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
+    print(sheet)
 
 
 
