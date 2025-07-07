@@ -212,10 +212,10 @@ def get_largest_blackrock_holds(stock_codes: dict) -> dict:
 
     for code, name in stock_codes.items():
         soup = make_request(STOCK_HOLDERS_TAB_URL.format(code=code))
-
-        # Find the institutional holders section
         top_institutional_holders_section = soup.find("section", attrs={"data-testid": "holders-top-institutional-holders"})
-        holders_table = top_institutional_holders_section.find("table", class_="yf-idy1mk")
+        if top_institutional_holders_section is None:
+            continue
+        holders_table = top_institutional_holders_section.find("table")
         holders_table_body = holders_table.find("tbody")
         rows = holders_table_body.find_all("tr", class_="yf-idy1mk")
 
@@ -290,35 +290,35 @@ def generate_sheet(title: str, headers: list[str], rows: list[list[str]]) -> str
 def main():
     codes = get_stock_codes()
 
-    youngest_ceos_data = get_youngest_ceos_from_profile_tab(codes)
-
-    headers = ["Name", "Code", "Country", "Employees", "CEO Name", "CEO Year Born"]
-    rows = list(zip(
-        youngest_ceos_data["Name"],
-        youngest_ceos_data["Code"],
-        youngest_ceos_data["Country"],
-        youngest_ceos_data["Employees"],
-        youngest_ceos_data["CEO Name"],
-        youngest_ceos_data["CEO Year Born"],
-    ))
-
-    sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
-    print(sheet)
-
-
-
-    best_statistics = get_stocks_with_best_statistics(codes)
-
-    headers = ["Name", "Code", "52-Week Change", "Total Cash"]
-    rows = list(zip(
-        best_statistics["Name"],
-        best_statistics["Code"],
-        best_statistics["52 Week Change"],
-        best_statistics["Total Cash"],
-    ))
-
-    sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
-    print(sheet)
+    # youngest_ceos_data = get_youngest_ceos_from_profile_tab(codes)
+    #
+    # headers = ["Name", "Code", "Country", "Employees", "CEO Name", "CEO Year Born"]
+    # rows = list(zip(
+    #     youngest_ceos_data["Name"],
+    #     youngest_ceos_data["Code"],
+    #     youngest_ceos_data["Country"],
+    #     youngest_ceos_data["Employees"],
+    #     youngest_ceos_data["CEO Name"],
+    #     youngest_ceos_data["CEO Year Born"],
+    # ))
+    #
+    # sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
+    # print(sheet)
+    #
+    #
+    #
+    # best_statistics = get_stocks_with_best_statistics(codes)
+    #
+    # headers = ["Name", "Code", "52-Week Change", "Total Cash"]
+    # rows = list(zip(
+    #     best_statistics["Name"],
+    #     best_statistics["Code"],
+    #     best_statistics["52 Week Change"],
+    #     best_statistics["Total Cash"],
+    # ))
+    #
+    # sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
+    # print(sheet)
 
 
 
