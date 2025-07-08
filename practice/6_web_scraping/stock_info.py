@@ -31,7 +31,7 @@ Links:
     - beautiful soup docs: https://www.crummy.com/software/BeautifulSoup/bs4/doc/
     - lxml docs: https://lxml.de/
 """
-
+import logging
 import time
 import requests
 from bs4 import BeautifulSoup
@@ -42,7 +42,7 @@ USER_AGENTS = ['Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/b
 MOST_ACTIVE_STOCKS_URL = "https://finance.yahoo.com/markets/stocks/most-active"
 STOCK_PROFILE_TAB_URL = "https://finance.yahoo.com/quote/{code}/profile"
 STOCK_STATISTICS_TAB_URL = "https://finance.yahoo.com/quote/{code}/key-statistics"
-STOCK_HOLDERS_TAB_URL = "https://finance.yahoo.com/quote/{code}/holders"
+BLK_HOLDERS_URL = "https://finance.yahoo.com/quote/BLK/holders"
 
 class RequestRefusedException(Exception):
     pass
@@ -56,10 +56,10 @@ def make_request(url: str) -> BeautifulSoup:
     }
     try:
         time.sleep(2)
-        print(f"Using User-Agent: {user_agent}")
+        #print(f"Using User-Agent: {user_agent}")
         response = requests.get(url, headers=headers, timeout=15)
-        print(f"Requested URL: {response.url}")
-        print(f"Status code: {response.status_code}")
+        #print(f"Requested URL: {response.url}")
+        #print(f"Status code: {response.status_code}")
         response.raise_for_status()
         return BeautifulSoup(response.content, "html.parser")
     except requests.exceptions.HTTPError as e:
@@ -78,12 +78,14 @@ def get_stock_codes() -> dict:
         url = f"https://finance.yahoo.com/markets/stocks/most-active/?count={count}&start={offset}"
         soup = make_request(url)
 
-        rows = soup.find_all("tr", class_="row yf-ao6als")
-        for row in rows:
-            code = row.find("span", class_="symbol yf-hwu3c7")
-            company_name = row.find("div", class_="leftAlignHeader companyName yf-362rys enableMaxWidth")
-            if code and company_name:
-                stock_codes[code.text.strip()] = company_name.text.strip()
+        ticker_links = soup.find_all("a", {"data-testid": "table-cell-ticker"})
+        for link in ticker_links:
+            href = link.get("href", "")
+            if "/quote/" in href:
+                code = href.split("/quote/")[1].strip("/").split("?")[0]
+                name = link.get("title", "").strip()
+                if code and name:
+                    stock_codes[code] = name
 
         result_span = soup.find("span", string=re.compile(rx_pages))
         if not result_span:
@@ -99,8 +101,30 @@ def get_stock_codes() -> dict:
             break
 
         offset = end
-
     return stock_codes
+
+def extract_ceo_info(soup):
+    try:
+        table_div = soup.find("div", class_="table-container")
+        if not table_div:
+            return "", "N/A"
+
+        table = table_div.find("table")
+        if not table:
+            return "", "N/A"
+
+        tbody = table.find("tbody")
+        rows = tbody.find_all("tr")
+        for row in rows:
+            cells = row.find_all("td")
+            if len(cells) >= 5 and "CEO" in cells[1].text:
+                name = cells[0].text.strip()
+                year_text = cells[4].text.strip()
+                year = int(year_text) if year_text.isdigit() else "N/A"
+                return name, year
+    except Exception as e:
+        logging.warning(f"CEO parsing failed: {e}")
+    return "", "N/A"
 
 
 def get_youngest_ceos_from_profile_tab(stock_codes: dict) -> dict:
@@ -121,21 +145,8 @@ def get_youngest_ceos_from_profile_tab(stock_codes: dict) -> dict:
         if emp_section:
             strong = emp_section.find("strong")
             if strong:
-                employees = strong.text.strip()
-
-        ceo_name, ceo_year = "", "N/A"
-        table = soup.find("div", class_="table-container yf-mj92za")
-        if table:
-            tbody = table.find("tbody")
-            if tbody:
-                row = tbody.find("tr", class_="yf-mj92za")
-                if row:
-                    tds = row.find_all("td", class_="yf-mj92za")
-                    if len(tds) >= 2:
-                        ceo_name = tds[0].text.strip()
-                        year_text = tds[-1].text.strip()
-                        if year_text.isdigit():
-                            ceo_year = int(year_text)
+                employees = strong.text.strip().replace(",", "")
+        ceo_name, ceo_year = extract_ceo_info(soup)
 
         if ceo_year != "N/A":
             all_data.append({
@@ -168,132 +179,81 @@ def parse_percent(pct_str: str) -> float:
     except (AttributeError, ValueError, TypeError):
         return float('-inf')
 
-def extract_value_from_table(table, row_index, col_index):
-    """Helper function to extract value from a table given row and column indices."""
-    try:
-        row = table.find_all("tr")[row_index]
-        cell = row.find_all("td")[col_index]
-        return cell.text.strip()
-    except (IndexError, AttributeError):
-        return "N/A"
+
+def extract_row_value_by_label(table, expected_label: str) -> str:
+    for row in table.find_all("tr"):
+        cells = row.find_all("td")
+        if len(cells) >= 2:
+            label = cells[0].get_text(strip=True)
+            if label.startswith(expected_label):
+                return cells[1].get_text(strip=True)
+    return "N/A"
 
 
-# Function to get stocks with best 52-week change
 def get_stocks_with_best_statistics(stock_codes: dict) -> dict:
     all_data = []
-
     for code, name in stock_codes.items():
-        soup = make_request(STOCK_STATISTICS_TAB_URL.format(code=code))
+        try:
+            soup = make_request(STOCK_STATISTICS_TAB_URL.format(code=code))
+            all_sections = soup.find_all("section", class_="yf-14j5zka")
+            if len(all_sections) < 2:
+                continue
 
-        # Parse the relevant sections
-        all_sections = soup.find_all("section", class_="yf-14j5zka")
-        financial_highlights_section = all_sections[0]
-        trading_information_section = all_sections[1]
+            financial_highlights_section = all_sections[0]
+            trading_information_section = all_sections[1]
 
-        # Extract financial data
-        stock_price_history_table = trading_information_section.find("table", class_="table yf-vaowmx")
-        week_52_change = extract_value_from_table(stock_price_history_table, 1, 1)  # Row 1, Column 1
+            stock_price_history_table = trading_information_section.find("table", class_="table yf-vaowmx")
+            week_52_change = extract_row_value_by_label(stock_price_history_table, "52 Week Change")
 
-        # Extract total cash from balance sheet
-        financial_highlights_tables = financial_highlights_section.find_all("table", class_="table yf-vaowmx")
-        balance_sheet_table = financial_highlights_tables[-2]  # The second-to-last table
-        total_cash = extract_value_from_table(balance_sheet_table, 0, 1)  # Row 0, Column 1
+            financial_highlights_tables = financial_highlights_section.find_all("table", class_="table yf-vaowmx")
+            balance_sheet_table = financial_highlights_tables[-2] if len(financial_highlights_tables) >= 2 else None
+            total_cash = extract_row_value_by_label(balance_sheet_table, "Total Cash") if balance_sheet_table else "N/A"
 
-        all_data.append({
-            "Name": name,
-            "Code": code,
-            "52 Week Change": week_52_change,
-            "Total Cash": total_cash
-        })
+            all_data.append({
+                "Name": name,
+                "Code": code,
+                "52 Week Change": week_52_change,
+                "Total Cash": total_cash
+            })
+        except Exception as e:
+            logging.warning(f"Error processing {code}: {e}")
 
-    # Sort the data in descending order
     all_data_sorted = sorted(all_data, key=lambda x: parse_percent(x["52 Week Change"]), reverse=True)
     top_ten = all_data_sorted[:10]
 
-    stock_data = {
+    return {
         "Name": [c["Name"] for c in top_ten],
         "Code": [c["Code"] for c in top_ten],
         "52 Week Change": [c["52 Week Change"] for c in top_ten],
         "Total Cash": [c["Total Cash"] for c in top_ten],
     }
 
-    return stock_data
 
+def get_top_institutional_holders():
+    soup = make_request(BLK_HOLDERS_URL)
 
-def parse_value(value_str: str) -> float:
-    value_str = value_str.strip('$').replace(',', '').upper()
+    section = soup.find("section", attrs={"data-testid": "holders-top-institutional-holders"})
+    if not section:
+        raise ValueError("Could not find the top institutional holders section.")
 
-    if value_str[-1] == 'B':
-        return float(value_str[:-1]) * 1000000000
-    elif value_str[-1] == 'M':
-        return float(value_str[:-1]) * 1000000
-    elif value_str[-1] == 'K':
-        return float(value_str[:-1]) * 1000
-    else:
-        return float(value_str)
+    table = section.find("table")
+    if not table:
+        raise ValueError("Could not find the holders table.")
 
+    tbody = table.find("tbody")
+    rows = tbody.find_all("tr", class_="yf-idy1mk")
 
-def get_value_from_columns(columns, index):
-    """Helper function to get value from the specified index of a column or return None if not found."""
-    try:
-        return columns[index].text.strip()
-    except IndexError:
-        return None
-
-
-# Function to get the largest BlackRock holdings
-def get_largest_blackrock_holds(stock_codes: dict) -> dict:
-    all_data = []
-
-    for code, name in stock_codes.items():
-        soup = make_request(STOCK_HOLDERS_TAB_URL.format(code=code))
-        top_institutional_holders_section = soup.find("section", attrs={"data-testid": "holders-top-institutional-holders"})
-        if top_institutional_holders_section is None:
-            continue
-        holders_table = top_institutional_holders_section.find("table")
-        holders_table_body = holders_table.find("tbody")
-        rows = holders_table_body.find_all("tr", class_="yf-idy1mk")
-
-        # Initialize variables to store information
-        shares, date_reported, out, value = None, None, None, None
-
-        # Find Blackrock Inc. in the list of institutional holders
-        for row in rows:
-            columns = row.find_all("td")
-            if columns:
-                holder_name = columns[0].text.strip()
-                if holder_name == "Blackrock Inc.":
-                    shares = get_value_from_columns(columns, 1)
-                    date_reported = get_value_from_columns(columns, 2)
-                    out = get_value_from_columns(columns, 3)
-                    value = get_value_from_columns(columns, 4)
-                    break
-
-        # Append the data to all_data list
-        all_data.append({
-            "Name": name,
-            "Code": code,
-            "Shares": shares,
-            "Date Reported": date_reported,
-            "% Out": out,
-            "Value": value
-        })
-
-    # Sort the holdings by value
-    sorted_holdings = sorted(all_data, key=lambda h: parse_value(h["Value"]) if h["Value"] else 0, reverse=True)
-    top_ten = sorted_holdings[:10]
-
-    # Create the final result
-    holds_data = {
-        "Name": [c["Name"] for c in top_ten],
-        "Code": [c["Code"] for c in top_ten],
-        "Shares": [c["Shares"] for c in top_ten],
-        "Date Reported": [c["Date Reported"] for c in top_ten],
-        "% Out": [c["% Out"] for c in top_ten],
-        "Value": [c["Value"] for c in top_ten]
-    }
-
-    return holds_data
+    holders = []
+    for row in rows:
+        columns = row.find_all("td")
+        if len(columns) >= 5:
+            holder = columns[0].text.strip()
+            shares = columns[1].text.strip()
+            date_reported = columns[2].text.strip()
+            percent_out = columns[3].text.strip()
+            value = columns[4].text.strip()
+            holders.append([holder, shares, date_reported, percent_out, value])
+    return holders
 
 
 def generate_sheet(title: str, headers: list[str], rows: list[list[str]]) -> str:
@@ -321,12 +281,10 @@ def generate_sheet(title: str, headers: list[str], rows: list[list[str]]) -> str
     return "\n".join(sheet_lines) + "\n"
 
 
-
 def main():
     codes = get_stock_codes()
 
     youngest_ceos_data = get_youngest_ceos_from_profile_tab(codes)
-
     headers = ["Name", "Code", "Country", "Employees", "CEO Name", "CEO Year Born"]
     rows = list(zip(
         youngest_ceos_data["Name"],
@@ -336,14 +294,11 @@ def main():
         youngest_ceos_data["CEO Name"],
         youngest_ceos_data["CEO Year Born"],
     ))
-
     sheet = generate_sheet("5 stocks with most youngest CEOs", headers, rows)
     print(sheet)
 
 
-
     best_statistics = get_stocks_with_best_statistics(codes)
-
     headers = ["Name", "Code", "52-Week Change", "Total Cash"]
     rows = list(zip(
         best_statistics["Name"],
@@ -351,25 +306,13 @@ def main():
         best_statistics["52 Week Change"],
         best_statistics["Total Cash"],
     ))
-
     sheet = generate_sheet("10 stocks with best 52-Week Change", headers, rows)
     print(sheet)
 
 
-
-    largest_blackrock_holders = get_largest_blackrock_holds(codes)
-
-    headers = ["Name", "Code", "Shares", "Date Reported", "% Out", "Value"]
-    rows = list(zip(
-        largest_blackrock_holders["Name"],
-        largest_blackrock_holders["Code"],
-        largest_blackrock_holders["Shares"],
-        largest_blackrock_holders["Date Reported"],
-        largest_blackrock_holders["% Out"],
-        largest_blackrock_holders["Value"],
-    ))
-
-    sheet = generate_sheet("10 largest holds of Blackrock Inc.", headers, rows)
+    data = get_top_institutional_holders()
+    headers = ["Name", "Shares", "Date Reported", "% Out", "Value"]
+    sheet = generate_sheet("10 largest holders of BlackRock Inc.", headers, data)
     print(sheet)
 
 if __name__ == "__main__":
