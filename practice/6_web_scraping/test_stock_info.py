@@ -1,27 +1,19 @@
 import importlib
-from unittest.mock import patch
-from bs4 import BeautifulSoup
 res = importlib.import_module('practice.6_web_scraping.stock_info')
+import stock_info
+import pytest
 
 
-@patch.object(res, "make_request")
-def test_get_stock_codes(mock_make_request):
-    html = """
-    <html>
-        <a href="/quote/AAPL" title="Apple Inc." data-testid="table-cell-ticker">AAPL</a>
-        <a href="/quote/GOOGL" title="Alphabet Inc." data-testid="table-cell-ticker">GOOGL</a>
-        <span>1-100 of 100 results</span>
-    </html>
-    """
-    mock_soup = BeautifulSoup(html, "html.parser")
-    mock_make_request.return_value = mock_soup
+def test_parse_percent_various():
+    assert stock_info.parse_percent('12.34%') == pytest.approx(12.34)
+    assert stock_info.parse_percent('1,234.56%') == pytest.approx(1234.56)
+    assert stock_info.parse_percent('invalid%') == 0.0
 
-    stock_codes = res.get_stock_codes()
-    assert stock_codes == {
-        "AAPL": "Apple Inc.",
-        "GOOGL": "Alphabet Inc."
-    }
-
+def test_parse_shares_various():
+    assert stock_info.parse_shares('10K') == pytest.approx(10_000)
+    assert stock_info.parse_shares('2.5M') == pytest.approx(2_500_000)
+    assert stock_info.parse_shares('100') == pytest.approx(100)
+    assert stock_info.parse_shares('invalid') == pytest.approx(0.0)
 
 def test_generate_sheet():
     title = "5 stocks with most youngest CEOs"
